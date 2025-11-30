@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Akuntansi Koperasi (SAK EP 2025)</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Babel untuk JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Import Map -->
+    <script type="importmap">
+    {
+      "imports": {
+        "react": "https://esm.sh/react@18.2.0",
+        "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+        "firebase/app": "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js",
+        "firebase/auth": "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js",
+        "firebase/firestore": "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js",
+        "lucide-react": "https://esm.sh/lucide-react@0.263.1?external=react"
+      }
+    }
+    </script>
+
+    <style>
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .font-mono { font-family: 'Courier New', Courier, monospace; }
+        .chart-bar { transition: height 0.5s ease-in-out; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900">
+    <div id="root"></div>
+
+    <!-- Main Script -->
+    <script type="text/babel" data-type="module">
+        import React, { useState, useEffect, useMemo } from 'react';
+        import { createRoot } from 'react-dom/client';
+        import { initializeApp } from 'firebase/app';
+        import { 
+            getAuth, 
+            signInAnonymously, 
+            onAuthStateChanged 
+        } from 'firebase/auth';
+        import { 
+            getFirestore, 
+            collection, 
+            addDoc, 
+            query, 
+            onSnapshot, 
+            orderBy, 
+            Timestamp, 
+            doc, 
+            writeBatch 
+        } from 'firebase/firestore';
+        import { 
+            LayoutDashboard, 
+            BookOpen, 
+            Landmark, 
+            FileText, 
+            PlusCircle, 
+            Trash2, 
+            Save,
+            TrendingUp,
+            TrendingDown,
+            Wallet,
+            Menu,
+            X,
+            Database,
+            DownloadCloud,
+            CheckCircle,
+            AlertTriangle,
+            Activity,
+            PieChart
+        } from 'lucide-react';
+
+        // --- Konfigurasi Firebase ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyANv8gHZz1BIwSmXvsH0T-y-hAFbeq1Q6k",
+            authDomain: "koperasi-sak-ep.firebaseapp.com",
+            projectId: "koperasi-sak-ep",
+            storageBucket: "koperasi-sak-ep.firebasestorage.app",
+            messagingSenderId: "360084183460",
+            appId: "1:360084183460:web:6904ac3021296357ed8931"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = 'koperasi-sak-ep';
+
+        // --- DATA MASTER: Bagan Akun (CoA) SAK EP 2025 LENGKAP ---
+        const INITIAL_COA = [
+            // I. ASET
+            { code: 'I.1.1.1', name: 'Kas Kecil AKM', type: 'Aset', normal: 'Debit', category: 'Kas & Setara Kas' },
+            { code: 'I.1.1.2', name: 'Kas Kecil Tiket', type: 'Aset', normal: 'Debit', category: 'Kas & Setara Kas' },
+            { code: 'I.1.1.2.1', name: 'Kas Kecil Adamart', type: 'Aset', normal: 'Debit', category: 'Kas & Setara Kas' },
+            { code: 'I.1.1.2.2', name: 'Kas Belum Disetor', type: 'Aset', normal: 'Debit', category: 'Kas & Setara Kas' },
+            { code: 'I.1.2.1', name: 'Bank Mandiri Induk AKM', type: 'Aset', normal: 'Debit', category: 'Kas & Setara Kas' },
+            { code: 'I.1.2.2', name: 'Bank Mandiri Induk Adamart', type: 'Aset', normal: 'Debit', category: 'Kas & Setara Kas' },
+            { code: 'I.1.2.3', name: 'Bank Mandiri Giro', type: 'Aset', normal: 'Debit', category: 'Kas & Setara Kas' },
+            { code: 'I.1.2.4', name: 'BNI Giro', type: 'Aset', normal: 'Debit', category: 'Kas & Setara Kas' },
+            { code: 'I.1.2.5', name: 'BRI Giro', type: 'Aset', normal: 'Debit', category: 'Kas & Setara Kas' },
+            { code: 'I.1.2.6', name: 'Bank Muamalat', type: 'Aset', normal: 'Debit', category: 'Kas & Setara Kas' },
+            { code: 'I.1.2.7', name: 'Bank Syariah Indonesia', type: 'Aset', normal: 'Debit', category: 'Kas & Setara Kas' },
+            { code: 'I.1.4', name: 'Piutang Usaha', type: 'Aset', normal: 'Debit', category: 'Piutang' },
+            { code: 'I.3.1', name: 'Piutang Anggota', type: 'Aset', normal: 'Debit', category: 'Piutang' },
+            { code: 'I.3.2', name: 'Piutang Non Anggota', type: 'Aset', normal: 'Debit', category: 'Piutang' },
+            { code: 'I.2.4.1', name: 'Tanah', type: 'Aset', normal: 'Debit', category: 'Aset Tetap' },
+            { code: 'I.2.4.2', name: 'Bangunan', type: 'Aset', normal: 'Debit', category: 'Aset Tetap' },
+            { code: 'I.2.4.3', name: 'Mesin dan Kendaraan', type: 'Aset', normal: 'Debit', category: 'Aset Tetap' },
+            { code: 'I.2.4.4', name: 'Inventaris dan Peralatan Kantor', type: 'Aset', normal: 'Debit', category: 'Aset Tetap' },
+            { code: 'I.9.1', name: 'Aset Tak Berwujud (Software)', type: 'Aset', normal: 'Debit', category: 'Aset Tetap' },
+
+            // II. LIABILITAS
+            { code: 'II.1.1.1', name: 'Simpanan Sukarela', type: 'Liabilitas', normal: 'Kredit', category: 'Simpanan Anggota' },
+            { code: 'II.1.1.2', name: 'Simpanan Berjangka', type: 'Liabilitas', normal: 'Kredit', category: 'Simpanan Anggota' },
+            { code: 'II.2.1', name: 'Utang Usaha', type: 'Liabilitas', normal: 'Kredit', category: 'Kewajiban Jangka Pendek' },
+            { code: 'II.3.1', name: 'Dana Pendidikan', type: 'Liabilitas', normal: 'Kredit', category: 'Dana-Dana' },
+            { code: 'II.3.2', name: 'Dana Sosial', type: 'Liabilitas', normal: 'Kredit', category: 'Dana-Dana' },
+            { code: 'II.3.3', name: 'Dana Pembangunan', type: 'Liabilitas', normal: 'Kredit', category: 'Dana-Dana' },
+
+            // III. EKUITAS
+            { code: 'III.1.1', name: 'Simpanan Pokok', type: 'Ekuitas', normal: 'Kredit', category: 'Modal Anggota' },
+            { code: 'III.1.2', name: 'Simpanan Wajib', type: 'Ekuitas', normal: 'Kredit', category: 'Modal Anggota' },
+            { code: 'III.1.3', name: 'Cadangan Umum', type: 'Ekuitas', normal: 'Kredit', category: 'Cadangan' },
+            { code: 'III.1.4', name: 'SHU Tahun Berjalan', type: 'Ekuitas', normal: 'Kredit', category: 'SHU' },
+
+            // IV. PENDAPATAN
+            { code: 'IV.1.1', name: 'Pendapatan Adamart Anggota', type: 'Pendapatan', normal: 'Kredit', category: 'Partisipasi Anggota' },
+            { code: 'IV.1.2', name: 'Pendapatan Kredit Uang Anggota', type: 'Pendapatan', normal: 'Kredit', category: 'Partisipasi Anggota' },
+            { code: 'IV.1.3', name: 'Pendapatan Tiket Anggota', type: 'Pendapatan', normal: 'Kredit', category: 'Partisipasi Anggota' },
+            { code: 'IV.1.4', name: 'Pendapatan Voucer Anggota', type: 'Pendapatan', normal: 'Kredit', category: 'Partisipasi Anggota' },
+            { code: 'IV.2.1', name: 'Pendapatan Jasa Giro', type: 'Pendapatan', normal: 'Kredit', category: 'Pendapatan Lain' },
+            { code: 'IV.2.2', name: 'Pendapatan Sewa Gedung', type: 'Pendapatan', normal: 'Kredit', category: 'Pendapatan Lain' },
+
+            // V. BEBAN
+            { code: 'V.1.1', name: 'Beban Jasa Simpanan Sukarela', type: 'Beban', normal: 'Debit', category: 'Beban Pokok' },
+            { code: 'V.1.2', name: 'Beban Jasa Simpanan Berjangka', type: 'Beban', normal: 'Debit', category: 'Beban Pokok' },
+            { code: 'V.1.4', name: 'Beban Pokok Penjualan', type: 'Beban', normal: 'Debit', category: 'Beban Pokok' },
+            { code: 'V.1.5', name: 'Beban Bunga Pinjaman Lain', type: 'Beban', normal: 'Debit', category: 'Beban Pokok' },
+            { code: 'V.3.1', name: 'Beban Operasional (Gaji)', type: 'Beban', normal: 'Debit', category: 'Beban Usaha' },
+            { code: 'V.3.2', name: 'Beban ATK', type: 'Beban', normal: 'Debit', category: 'Beban Usaha' },
+            { code: 'V.3.3', name: 'Biaya Pra Audit', type: 'Beban', normal: 'Debit', category: 'Beban Usaha' },
+            { code: 'V.3.4', name: 'Biaya BBM', type: 'Beban', normal: 'Debit', category: 'Beban Usaha' },
+            { code: 'V.3.5', name: 'Biaya THR Karyawan', type: 'Beban', normal: 'Debit', category: 'Beban Usaha' },
+            { code: 'V.3.6', name: 'Biaya Entertainment', type: 'Beban', normal: 'Debit', category: 'Beban Usaha' },
+            { code: 'V.3.7', name: 'Beban Listrik', type: 'Beban', normal: 'Debit', category: 'Beban Usaha' },
+            { code: 'V.3.8', name: 'Beban PDAM', type: 'Beban', normal: 'Debit', category: 'Beban Usaha' },
+            { code: 'V.3.9', name: 'Beban Telpon dan Internet', type: 'Beban', normal: 'Debit', category: 'Beban Usaha' },
+            { code: 'V.3.10', name: 'Beban TV Kabel', type: 'Beban', normal: 'Debit', category: 'Beban Usaha' },
+            { code: 'V.3.11', name: 'Biaya Promosi', type: 'Beban', normal: 'Debit', category: 'Beban Usaha' },
+            { code: 'V.3.12', name: 'Kesejahteraan Karyawan', type: 'Beban', normal: 'Debit', category: 'Beban Usaha' },
+            { code: 'V.3.13', name: 'Biaya Perbaikan Kendaraan', type: 'Beban', normal: 'Debit', category: 'Beban Usaha' },
+            { code: 'V.3.14', name: 'Biaya Perbaikan Peralatan', type: 'Beban', normal: 'Debit', category: 'Beban Usaha' },
+            { code: 'V.3.15', name: 'Biaya Perlengkapan', type: 'Beban', normal: 'Debit', category: 'Beban Usaha' },
+            { code: 'V.3.16', name: 'Beban PBB', type: 'Beban', normal: 'Debit', category: 'Beban Usaha' },
+            { code: 'V.3.24', name: 'Beban GPS', type: 'Beban', normal: 'Debit', category: 'Beban Usaha' },
+            { code: 'V.9.1', name: 'Beban Honor Pengurus', type: 'Beban', normal: 'Debit', category: 'Perkoperasian' },
+            { code: 'V.9.2', name: 'THR Pengurus', type: 'Beban', normal: 'Debit', category: 'Perkoperasian' },
+            { code: 'V.9.3', name: 'Biaya RAT', type: 'Beban', normal: 'Debit', category: 'Perkoperasian' },
+            { code: 'V.9.4', name: 'Biaya Administrasi Bank', type: 'Beban', normal: 'Debit', category: 'Perkoperasian' },
+        ];
+
+        // --- Utilities ---
+        const formatRupiah = (number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(number);
+
+        // --- Components ---
+        const NavItem = ({ icon, label, active, onClick }) => (
+            <button onClick={onClick} className={`flex w-full items-center space-x-3 rounded-lg px-4 py-3 transition-colors ${active ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+                {icon} <span className="font-medium">{label}</span>
+            </button>
+        );
+
+        const StatCard = ({ title, value, icon, color }) => (
+            <div className="rounded-xl bg-white p-6 shadow-sm border border-gray-100 flex items-center justify-between transition-all hover:shadow-md">
+                <div>
+                    <p className="text-sm font-medium text-gray-500 uppercase tracking-wide">{title}</p>
+                    <p className="text-2xl font-bold text-gray-800 mt-2">{value}</p>
+                </div>
+                <div className={`p-4 rounded-xl ${color} text-white shadow-lg opacity-90`}>{icon}</div>
+            </div>
+        );
+
+        // --- NEW COMPONENTS FOR ANALYTICS ---
+
+        // 1. Chart Arus Kas Bulanan
+        const CashFlowChart = ({ journals }) => {
+            const monthlyData = useMemo(() => {
+                const data = Array(12).fill(0).map(() => ({ in: 0, out: 0 }));
+                journals.forEach(j => {
+                    const date = new Date(j.date);
+                    if (date.getFullYear() !== 2025) return; // Filter tahun berjalan
+                    const month = date.getMonth();
+                    
+                    j.details.forEach(d => {
+                        const coa = INITIAL_COA.find(c => c.code === d.accountCode);
+                        if (coa && coa.category === 'Kas & Setara Kas') {
+                            // Kas di Debit = Uang Masuk, Kredit = Uang Keluar
+                            if (d.debit > 0) data[month].in += d.debit;
+                            if (d.credit > 0) data[month].out += d.credit;
+                        }
+                    });
+                });
+                return data;
+            }, [journals]);
+
+            const maxVal = Math.max(...monthlyData.map(d => Math.max(d.in, d.out))) || 1;
+
+            return (
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                    <div className="flex justify-between items-center mb-6">
+                        <h3 className="font-bold text-gray-800 flex items-center gap-2"><Activity size={18} className="text-blue-500"/> Tren Arus Kas (2025)</h3>
+                        <div className="flex gap-4 text-xs">
+                            <span className="flex items-center gap-1"><div className="w-3 h-3 bg-emerald-500 rounded-sm"></div> Masuk</span>
+                            <span className="flex items-center gap-1"><div className="w-3 h-3 bg-red-500 rounded-sm"></div> Keluar</span>
+                        </div>
+                    </div>
+                    <div className="flex items-end justify-between h-48 gap-2">
+                        {monthlyData.map((d, i) => (
+                            <div key={i} className="flex-1 flex flex-col justify-end gap-1 items-center group relative">
+                                <div className="w-full flex gap-0.5 items-end justify-center h-full">
+                                    <div style={{height: `${(d.in / maxVal) * 100}%`}} className="w-3 bg-emerald-400 rounded-t-sm hover:bg-emerald-500 transition-all chart-bar"></div>
+                                    <div style={{height: `${(d.out / maxVal) * 100}%`}} className="w-3 bg-red-400 rounded-t-sm hover:bg-red-500 transition-all chart-bar"></div>
+                                </div>
+                                <span className="text-[10px] text-gray-400 uppercase">{new Date(0, i).toLocaleString('id', {month:'short'})}</span>
+                                {/* Tooltip */}
+                                <div className="absolute bottom-full mb-2 hidden group-hover:block bg-gray-800 text-white text-xs p-2 rounded z-10 w-max">
+                                    <p className="text-emerald-300">In: {formatRupiah(d.in)}</p>
+                                    <p className="text-red-300">Out: {formatRupiah(d.out)}</p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
+        // 2. Health Check Card (Liquidity)
+        const LiquidityCard = ({ journals }) => {
+            const ratio = useMemo(() => {
+                let currentAssets = 0; // Kas + Bank
+                let currentLiabilities = 0; // Utang Lancar
+
+                // Hitung saldo akhir
+                const balances = {};
+                journals.forEach(j => j.details.forEach(d => {
+                    const acc = INITIAL_COA.find(c => c.code === d.accountCode);
+                    if (acc) {
+                        if (!balances[acc.code]) balances[acc.code] = 0;
+                        balances[acc.code] += (acc.normal === 'Debit' ? (d.debit - d.credit) : (d.credit - d.debit));
+                    }
+                }));
+
+                // Sum Assets (Kas & Bank)
+                INITIAL_COA.filter(c => c.category === 'Kas & Setara Kas').forEach(c => currentAssets += (balances[c.code] || 0));
+                
+                // Sum Liabilities (Kewajiban Jangka Pendek + Simpanan Sukarela yang bisa diambil kapan saja)
+                INITIAL_COA.filter(c => c.category === 'Kewajiban Jangka Pendek' || c.code === 'II.1.1.1').forEach(c => currentLiabilities += (balances[c.code] || 0));
+
+                if (currentLiabilities === 0) return 100; // Aman jika tidak ada utang
+                return (currentAssets / currentLiabilities) * 100;
+            }, [journals]);
+
+            let status = { label: 'Sehat', color: 'text-emerald-600', bg: 'bg-emerald-100', desc: 'Aset lancar cukup untuk bayar kewajiban.' };
+            if (ratio < 100) status = { label: 'Waspada', color: 'text-yellow-600', bg: 'bg-yellow-100', desc: 'Kas menipis dibanding utang lancar.' };
+            if (ratio < 50) status = { label: 'Bahaya', color: 'text-red-600', bg: 'bg-red-100', desc: 'Risiko gagal bayar tinggi!' };
+
+            return (
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-between">
+                    <div>
+                        <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-2"><Activity size={18} className="text-orange-500"/> Quick Health Check</h3>
+                        <p className="text-xs text-gray-500">Rasio Likuiditas Cepat (Kas / Kewajiban Lancar)</p>
+                    </div>
+                    <div className="mt-4 text-center">
+                        <div className={`text-4xl font-bold ${status.color}`}>{ratio.toFixed(0)}%</div>
+                        <div className={`inline-block px-3 py-1 rounded-full text-xs font-bold mt-2 ${status.bg} ${status.color}`}>{status.label}</div>
+                        <p className="text-xs text-gray-500 mt-2">{status.desc}</p>
+                    </div>
+                </div>
+            );
+        };
+
+        // 3. Piutang Monitor (NPL Placeholder with Logic)
+        const PiutangMonitor = ({ journals }) => {
+            const totalPiutang = useMemo(() => {
+                let total = 0;
+                journals.forEach(j => j.details.forEach(d => {
+                    if (d.accountCode.startsWith('I.3')) { // Semua akun Piutang (I.3.x)
+                        total += (d.debit - d.credit);
+                    }
+                }));
+                return total;
+            }, [journals]);
+
+            // Simulasi NPL (Karena data jurnal tidak punya 'Jatuh Tempo', kita pakai estimasi dari data demo rasio)
+            // Dalam implementasi nyata, ini butuh modul pinjaman terpisah.
+            const nplRate = 5; // Asumsi 5% macet (target sehat)
+            const macet = totalPiutang * (nplRate/100);
+            const lancar = totalPiutang - macet;
+
+            return (
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                    <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-4"><PieChart size={18} className="text-purple-500"/> Monitoring Piutang</h3>
+                    
+                    <div className="flex items-center gap-4 mb-4">
+                        <div className="w-1/2">
+                            <p className="text-xs text-gray-500">Total Piutang Anggota</p>
+                            <p className="text-lg font-bold text-gray-800">{formatRupiah(totalPiutang)}</p>
+                        </div>
+                        <div className="w-1/2 text-right">
+                            <p className="text-xs text-gray-500">Estimasi Macet ({nplRate}%)</p>
+                            <p className="text-lg font-bold text-red-500">{formatRupiah(macet)}</p>
+                        </div>
+                    </div>
+
+                    {/* Progress Bar Visual */}
+                    <div className="w-full h-4 bg-gray-100 rounded-full overflow-hidden flex">
+                        <div style={{width: `${100-nplRate}%`}} className="bg-emerald-500 h-full"></div>
+                        <div style={{width: `${nplRate}%`}} className="bg-red-500 h-full"></div>
+                    </div>
+                    <div className="flex justify-between text-[10px] text-gray-400 mt-1">
+                        <span>Lancar (Target >95%)</span>
+                        <span>Berisiko</span>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- 1. Dashboard (Updated Layout) ---
+        const Dashboard = ({ user }) => {
+            const [journals, setJournals] = useState([]);
+            
+            useEffect(() => {
+                if (!user) return;
+                const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'journals'));
+                const unsubscribe = onSnapshot(q, (snapshot) => {
+                    setJournals(snapshot.docs.map(d => d.data()));
+                });
+                return () => unsubscribe();
+            }, [user]);
+
+            const stats = useMemo(() => {
+                let totalAsset = 0, totalRevenue = 0, totalExpense = 0;
+                journals.forEach(journal => {
+                    journal.details.forEach(detail => {
+                        const coa = INITIAL_COA.find(c => c.code === detail.accountCode);
+                        if (coa) {
+                            if (coa.type === 'Aset') totalAsset += (coa.normal === 'Debit' ? (detail.debit - detail.credit) : (detail.credit - detail.debit));
+                            if (coa.type === 'Pendapatan') totalRevenue += detail.credit - detail.debit;
+                            if (coa.type === 'Beban') totalExpense += detail.debit - detail.credit;
+                        }
+                    });
+                });
+                return { asset: totalAsset, shu: totalRevenue - totalExpense };
+            }, [journals]);
+
+            return (
+                <div className="space-y-6">
+                    {/* Top Stats */}
+                    <div className="grid gap-6 md:grid-cols-3">
+                        <StatCard title="Total Aset (Netto)" value={formatRupiah(stats.asset)} icon={<Wallet size={24} />} color="bg-blue-500" />
+                        <StatCard title="SHU Tahun Berjalan" value={formatRupiah(stats.shu)} icon={<TrendingUp size={24} />} color="bg-emerald-500" />
+                        <StatCard title="Total Transaksi" value={journals.length} icon={<FileText size={24} />} color="bg-purple-500" />
+                    </div>
+
+                    {/* Analytics Section - NEW! */}
+                    <div className="grid gap-6 md:grid-cols-3">
+                        <div className="md:col-span-2">
+                            <CashFlowChart journals={journals} />
+                        </div>
+                        <div className="space-y-6">
+                            <LiquidityCard journals={journals} />
+                            <PiutangMonitor journals={journals} />
+                        </div>
+                    </div>
+
+                    {/* Recent Activity */}
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                        <h3 className="font-semibold text-gray-800 mb-4">Aktivitas Terakhir</h3>
+                        {journals.slice(0, 5).map((j, idx) => (
+                            <div key={idx} className="flex justify-between items-center py-3 border-b last:border-0">
+                                <div>
+                                    <p className="text-sm font-medium text-gray-900">{j.description}</p>
+                                    <p className="text-xs text-gray-500">{new Date(j.date).toLocaleDateString('id-ID')}</p>
+                                </div>
+                                <span className="text-xs font-mono bg-slate-100 px-2 py-1 rounded">{j.refNo}</span>
+                            </div>
+                        ))}
+                        {journals.length === 0 && <p className="text-gray-400 text-sm">Belum ada transaksi. Silakan input di menu Jurnal.</p>}
+                    </div>
+                </div>
+            );
+        };
+
+        // --- 2. Journal Entry ---
+        const JournalEntry = ({ user }) => {
+            const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+            const [description, setDescription] = useState('');
+            const [rows, setRows] = useState([{ accountCode: '', debit: 0, credit: 0 }]);
+            const [isSubmitting, setIsSubmitting] = useState(false);
+
+            const updateRow = (index, field, value) => {
+                const newRows = [...rows];
+                newRows[index][field] = value;
+                setRows(newRows);
+            };
+            
+            const addRow = () => setRows([...rows, { accountCode: '', debit: 0, credit: 0 }]);
+            const removeRow = (idx) => rows.length > 1 && setRows(rows.filter((_, i) => i !== idx));
+
+            const totals = useMemo(() => rows.reduce((acc, row) => ({
+                debit: acc.debit + Number(row.debit || 0),
+                credit: acc.credit + Number(row.credit || 0)
+            }), { debit: 0, credit: 0 }), [rows]);
+
+            const handleSubmit = async () => {
+                if (totals.debit !== totals.credit || totals.debit === 0 || !description) return alert("Data jurnal tidak valid/balance.");
+                setIsSubmitting(true);
+                try {
+                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'journals'), {
+                        date, description, refNo: `J-${Date.now().toString().slice(-6)}`,
+                        details: rows.map(r => ({ accountCode: r.accountCode, debit: Number(r.debit), credit: Number(r.credit) })),
+                        createdAt: Timestamp.now(), createdBy: user.uid
+                    });
+                    setDescription(''); setRows([{ accountCode: '', debit: 0, credit: 0 }]);
+                    alert("Berhasil disimpan!");
+                } catch (e) { alert("Gagal menyimpan."); } finally { setIsSubmitting(false); }
+            };
+
+            return (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 max-w-4xl mx-auto">
+                    <h2 className="text-lg font-bold text-gray-800 mb-6 pb-2 border-b">Entri Jurnal Umum (SAK EP)</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                        <input type="date" value={date} onChange={e => setDate(e.target.value)} className="border p-2 rounded" />
+                        <input type="text" placeholder="Uraian Transaksi" value={description} onChange={e => setDescription(e.target.value)} className="border p-2 rounded" />
+                    </div>
+                    <div className="space-y-2 mb-6">
+                        {rows.map((row, idx) => (
+                            <div key={idx} className="flex gap-2 flex-col md:flex-row">
+                                <select value={row.accountCode} onChange={e => updateRow(idx, 'accountCode', e.target.value)} className="flex-1 border p-2 rounded">
+                                    <option value="">-- Pilih Akun --</option>
+                                    {INITIAL_COA.map(acc => <option key={acc.code} value={acc.code}>{acc.code} - {acc.name}</option>)}
+                                </select>
+                                <input type="number" placeholder="Debit" value={row.debit} onChange={e => updateRow(idx, 'debit', e.target.value)} className="w-32 border p-2 rounded text-right" disabled={row.credit > 0}/>
+                                <input type="number" placeholder="Kredit" value={row.credit} onChange={e => updateRow(idx, 'credit', e.target.value)} className="w-32 border p-2 rounded text-right" disabled={row.debit > 0}/>
+                                <button onClick={() => removeRow(idx)} className="text-red-500 p-2"><Trash2 size={18}/></button>
+                            </div>
+                        ))}
+                        <button onClick={addRow} className="text-emerald-600 text-sm font-bold flex items-center mt-2"><PlusCircle size={16} className="mr-1"/> Tambah Baris</button>
+                    </div>
+                    <div className="flex justify-between items-center pt-4 border-t">
+                        <div className="text-sm font-bold">Total: {formatRupiah(totals.debit)} <span className={totals.debit === totals.credit ? "text-emerald-600 ml-2" : "text-red-600 ml-2"}>{totals.debit === totals.credit ? "(Balance)" : "(Tidak Balance)"}</span></div>
+                        <button onClick={handleSubmit} disabled={isSubmitting} className="bg-emerald-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-emerald-700 disabled:opacity-50">Simpan</button>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- 3. Ledger ---
+        const Ledger = ({ user }) => {
+            const [journals, setJournals] = useState([]);
+            const [filter, setFilter] = useState('ALL');
+            useEffect(() => {
+                if (!user) return;
+                const unsubscribe = onSnapshot(query(collection(db, 'artifacts', appId, 'public', 'data', 'journals'), orderBy('date', 'desc')), 
+                    (s) => setJournals(s.docs.map(d => ({id: d.id, ...d.data()}))));
+                return () => unsubscribe();
+            }, [user]);
+
+            const txs = useMemo(() => {
+                let data = [];
+                journals.forEach(j => j.details.forEach(d => {
+                    if (filter === 'ALL' || d.accountCode === filter) {
+                        data.push({ date: j.date, ref: j.refNo, desc: j.description, code: d.accountCode, name: INITIAL_COA.find(c=>c.code===d.accountCode)?.name, deb: d.debit, cred: d.credit });
+                    }
+                }));
+                return data;
+            }, [journals, filter]);
+
+            return (
+                <div className="space-y-6">
+                    <div className="bg-white p-4 rounded-xl shadow-sm border flex items-center gap-4">
+                        <BookOpen size={20} className="text-emerald-600"/>
+                        <select value={filter} onChange={e => setFilter(e.target.value)} className="border p-2 rounded flex-1">
+                            <option value="ALL">Semua Transaksi</option>
+                            {INITIAL_COA.map(c => <option key={c.code} value={c.code}>{c.code} - {c.name}</option>)}
+                        </select>
+                    </div>
+                    <div className="bg-white rounded-xl shadow-sm border overflow-x-auto">
+                        <table className="w-full text-sm text-left">
+                            <thead className="bg-gray-50 border-b"><tr><th className="p-4">Tanggal</th><th className="p-4">Akun</th><th className="p-4">Keterangan</th><th className="p-4 text-right">Debit</th><th className="p-4 text-right">Kredit</th></tr></thead>
+                            <tbody className="divide-y">{txs.map((t, i) => (
+                                <tr key={i} className="hover:bg-slate-50">
+                                    <td className="p-4">{t.date}<br/><span className="text-xs text-gray-500">{t.ref}</span></td>
+                                    <td className="p-4 font-bold">{t.code}<br/><span className="font-normal text-xs">{t.name}</span></td>
+                                    <td className="p-4">{t.desc}</td>
+                                    <td className="p-4 text-right font-mono">{t.deb ? formatRupiah(t.deb) : '-'}</td>
+                                    <td className="p-4 text-right font-mono">{t.cred ? formatRupiah(t.cred) : '-'}</td>
+                                </tr>
+                            ))}</tbody>
+                        </table>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- 4. Reports ---
+        const Reports = ({ user }) => {
+            const [type, setType] = useState('laba_rugi');
+            const [journals, setJournals] = useState([]);
+            
+            useEffect(() => {
+                if (!user) return;
+                const unsubscribe = onSnapshot(query(collection(db, 'artifacts', appId, 'public', 'data', 'journals')), (s) => setJournals(s.docs.map(d => d.data())));
+                return () => unsubscribe();
+            }, [user]);
+
+            const balances = useMemo(() => {
+                const bal = {};
+                INITIAL_COA.forEach(c => bal[c.code] = 0);
+                journals.forEach(j => j.details.forEach(d => {
+                    const acc = INITIAL_COA.find(c => c.code === d.accountCode);
+                    if (acc) bal[acc.code] += (acc.normal === 'Debit' ? (d.debit - d.credit) : (d.credit - d.debit));
+                }));
+                return bal;
+            }, [journals]);
+
+            const LabaRugi = () => {
+                const grp = (cat) => INITIAL_COA.filter(c => c.category === cat);
+                const sum = (arr) => arr.reduce((s, c) => s + (balances[c.code] || 0), 0);
+                
+                const partisipasi = sum(grp('Partisipasi Anggota'));
+                const bebanPokok = sum(grp('Beban Pokok'));
+                const pendLain = sum(grp('Pendapatan Lain'));
+                const bebanUsaha = sum(grp('Beban Usaha'));
+                const bebanKop = sum(grp('Perkoperasian'));
+                
+                const shuKotor = (partisipasi - bebanPokok) + pendLain;
+                const shuBersih = shuKotor - bebanUsaha - bebanKop;
+
+                return (
+                    <div className="bg-white p-8 rounded-xl shadow-lg border border-gray-200">
+                        <div className="text-center mb-8"><h2 className="text-2xl font-bold text-gray-800">Laporan Hasil Usaha</h2><p className="text-sm text-gray-500">SAK EP Compliant</p></div>
+                        <table className="w-full text-sm">
+                            <tbody>
+                                <tr className="bg-emerald-50"><td className="p-3 font-bold text-emerald-800">PARTISIPASI ANGGOTA</td><td className="p-3 text-right font-mono font-bold">{formatRupiah(partisipasi)}</td></tr>
+                                {grp('Partisipasi Anggota').map(c => <tr key={c.code}><td className="p-2 pl-6 text-gray-600">{c.code} {c.name}</td><td className="p-2 text-right font-mono">{formatRupiah(balances[c.code])}</td></tr>)}
+                                
+                                <tr className="bg-red-50"><td className="p-3 font-bold text-red-800">BEBAN POKOK</td><td className="p-3 text-right font-mono font-bold text-red-600">({formatRupiah(bebanPokok)})</td></tr>
+                                
+                                <tr className="bg-blue-50"><td className="p-3 font-bold text-blue-800">PENDAPATAN LAIN</td><td className="p-3 text-right font-mono font-bold">{formatRupiah(pendLain)}</td></tr>
+                                {grp('Pendapatan Lain').map(c => <tr key={c.code}><td className="p-2 pl-6 text-gray-600">{c.code} {c.name}</td><td className="p-2 text-right font-mono">{formatRupiah(balances[c.code])}</td></tr>)}
+
+                                <tr className="bg-gray-100"><td className="p-3 font-bold">SHU KOTOR</td><td className="p-3 text-right font-mono font-bold">{formatRupiah(shuKotor)}</td></tr>
+
+                                <tr className="mt-4"><td className="p-3 font-bold text-gray-700">BEBAN USAHA</td><td className="p-3 text-right font-mono font-bold">({formatRupiah(bebanUsaha)})</td></tr>
+                                {grp('Beban Usaha').map(c => <tr key={c.code}><td className="p-2 pl-6 text-gray-600">{c.code} {c.name}</td><td className="p-2 text-right font-mono text-red-500">({formatRupiah(balances[c.code])})</td></tr>)}
+
+                                <tr><td className="p-3 font-bold text-gray-700">BEBAN PERKOPERASIAN</td><td className="p-3 text-right font-mono font-bold">({formatRupiah(bebanKop)})</td></tr>
+                                {grp('Perkoperasian').map(c => <tr key={c.code}><td className="p-2 pl-6 text-gray-600">{c.code} {c.name}</td><td className="p-2 text-right font-mono text-red-500">({formatRupiah(balances[c.code])})</td></tr>)}
+
+                                <tr className="bg-emerald-600 text-white text-lg"><td className="p-4 font-bold">SHU BERSIH</td><td className="p-4 text-right font-mono font-bold">{formatRupiah(shuBersih)}</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                );
+            };
+
+            const Neraca = () => {
+                const types = ['Aset', 'Liabilitas', 'Ekuitas'];
+                const sums = types.map(t => INITIAL_COA.filter(c => c.type === t).reduce((s, c) => s + (balances[c.code] || 0), 0));
+                
+                // Hitung SHU Berjalan untuk penyeimbang Ekuitas
+                const income = INITIAL_COA.filter(c => c.type === 'Pendapatan').reduce((s, c) => s + (balances[c.code] || 0), 0);
+                const expense = INITIAL_COA.filter(c => c.type === 'Beban').reduce((s, c) => s + (balances[c.code] || 0), 0);
+                const currentSHU = income - expense;
+                const totalEkuitas = sums[2] + currentSHU;
+
+                return (
+                    <div className="grid md:grid-cols-2 gap-6">
+                        <div className="bg-white p-6 rounded-xl shadow border">
+                            <h3 className="font-bold text-xl border-b pb-2 mb-4 text-emerald-700">ASET</h3>
+                            {INITIAL_COA.filter(c => c.type === 'Aset').map(c => (
+                                <div key={c.code} className="flex justify-between py-2 border-b border-dashed">
+                                    <span className="text-gray-600 text-sm">{c.code} {c.name}</span>
+                                    <span className="font-mono">{formatRupiah(balances[c.code])}</span>
+                                </div>
+                            ))}
+                            <div className="flex justify-between font-bold mt-4 bg-gray-100 p-2 rounded"><span>TOTAL ASET</span><span>{formatRupiah(sums[0])}</span></div>
+                        </div>
+                        <div className="space-y-6">
+                            <div className="bg-white p-6 rounded-xl shadow border">
+                                <h3 className="font-bold text-xl border-b pb-2 mb-4 text-red-700">LIABILITAS</h3>
+                                {INITIAL_COA.filter(c => c.type === 'Liabilitas').map(c => (
+                                    <div key={c.code} className="flex justify-between py-2 border-b border-dashed">
+                                        <span className="text-gray-600 text-sm">{c.code} {c.name}</span>
+                                        <span className="font-mono">{formatRupiah(balances[c.code])}</span>
+                                    </div>
+                                ))}
+                                <div className="flex justify-between font-bold mt-4 bg-gray-100 p-2 rounded"><span>TOTAL LIABILITAS</span><span>{formatRupiah(sums[1])}</span></div>
+                            </div>
+                            <div className="bg-white p-6 rounded-xl shadow border">
+                                <h3 className="font-bold text-xl border-b pb-2 mb-4 text-blue-700">EKUITAS</h3>
+                                {INITIAL_COA.filter(c => c.type === 'Ekuitas' && c.name !== 'SHU Tahun Berjalan').map(c => (
+                                    <div key={c.code} className="flex justify-between py-2 border-b border-dashed">
+                                        <span className="text-gray-600 text-sm">{c.code} {c.name}</span>
+                                        <span className="font-mono">{formatRupiah(balances[c.code])}</span>
+                                    </div>
+                                ))}
+                                <div className="flex justify-between py-2 border-b border-dashed text-blue-600"><span>SHU Tahun Berjalan</span><span className="font-mono">{formatRupiah(currentSHU)}</span></div>
+                                <div className="flex justify-between font-bold mt-4 bg-gray-100 p-2 rounded"><span>TOTAL EKUITAS</span><span>{formatRupiah(totalEkuitas)}</span></div>
+                            </div>
+                            <div className="bg-slate-800 text-white p-4 rounded-xl flex justify-between font-bold">
+                                <span>TOTAL LIABILITAS + EKUITAS</span>
+                                <span>{formatRupiah(sums[1] + totalEkuitas)}</span>
+                            </div>
+                        </div>
+                    </div>
+                );
+            };
+
+            return (
+                <div className="space-y-6">
+                    <div className="flex gap-2">
+                        <button onClick={() => setType('laba_rugi')} className={`px-4 py-2 rounded font-bold ${type === 'laba_rugi' ? 'bg-slate-800 text-white' : 'bg-white'}`}>Laporan Hasil Usaha</button>
+                        <button onClick={() => setType('neraca')} className={`px-4 py-2 rounded font-bold ${type === 'neraca' ? 'bg-slate-800 text-white' : 'bg-white'}`}>Posisi Keuangan</button>
+                    </div>
+                    {type === 'laba_rugi' ? <LabaRugi/> : <Neraca/>}
+                </div>
+            );
+        };
+
+        // --- Main App ---
+        const App = () => {
+            const [user, setUser] = useState(null);
+            const [activeTab, setActiveTab] = useState('dashboard');
+            const [sidebarOpen, setSidebarOpen] = useState(false);
+
+            useEffect(() => {
+                const init = async () => {
+                    try {
+                        await signInAnonymously(auth);
+                    } catch (e) {
+                        console.error("Gagal login anonim:", e);
+                        alert("Gagal login ke Firebase. Pastikan 'Anonymous' sign-in provider sudah diaktifkan di Firebase Console > Authentication.");
+                    }
+                };
+                init();
+                return onAuthStateChanged(auth, setUser);
+            }, []);
+
+            if (!user) return <div className="flex h-screen items-center justify-center bg-gray-100 font-bold text-slate-500 animate-pulse">Memuat Sistem SAK EP 2025...</div>;
+
+            return (
+                <div className="flex h-screen overflow-hidden font-sans">
+                    {/* Sidebar Mobile Overlay */}
+                    {sidebarOpen && <div className="fixed inset-0 z-20 bg-black/50 lg:hidden" onClick={() => setSidebarOpen(false)}></div>}
+                    
+                    <aside className={`fixed inset-y-0 left-0 z-30 w-64 bg-slate-900 text-white transition-transform duration-300 lg:static lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+                        <div className="h-16 flex items-center justify-between px-6 border-b border-slate-700">
+                            <span className="font-bold text-emerald-400 text-lg">KOPERASI SAK EP</span>
+                            <button className="lg:hidden" onClick={() => setSidebarOpen(false)}><X size={24}/></button>
+                        </div>
+                        <nav className="p-3 space-y-1">
+                            <NavItem icon={<LayoutDashboard size={20}/>} label="Dashboard" active={activeTab==='dashboard'} onClick={()=>{setActiveTab('dashboard');setSidebarOpen(false)}}/>
+                            <NavItem icon={<PlusCircle size={20}/>} label="Entri Jurnal" active={activeTab==='jurnal'} onClick={()=>{setActiveTab('jurnal');setSidebarOpen(false)}}/>
+                            <NavItem icon={<BookOpen size={20}/>} label="Buku Besar" active={activeTab==='buku_besar'} onClick={()=>{setActiveTab('buku_besar');setSidebarOpen(false)}}/>
+                            <NavItem icon={<FileText size={20}/>} label="Laporan" active={activeTab==='laporan'} onClick={()=>{setActiveTab('laporan');setSidebarOpen(false)}}/>
+                        </nav>
+                    </aside>
+
+                    <div className="flex-1 flex flex-col h-screen overflow-hidden">
+                        <header className="h-16 bg-white shadow-sm flex items-center justify-between px-6 z-10">
+                            <button className="lg:hidden" onClick={() => setSidebarOpen(true)}><Menu size={24}/></button>
+                            <h1 className="font-bold text-gray-800 text-lg lg:text-xl">
+                                {activeTab === 'dashboard' && 'Ringkasan Eksekutif'}
+                                {activeTab === 'jurnal' && 'Input Transaksi (Double Entry)'}
+                                {activeTab === 'buku_besar' && 'Buku Besar'}
+                                {activeTab === 'laporan' && 'Laporan Keuangan SAK EP'}
+                            </h1>
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full">SAK EP 2025</span>
+                            </div>
+                        </header>
+                        <main className="flex-1 overflow-auto p-4 lg:p-6">
+                            {activeTab === 'dashboard' && <Dashboard user={user}/>}
+                            {activeTab === 'jurnal' && <JournalEntry user={user}/>}
+                            {activeTab === 'buku_besar' && <Ledger user={user}/>}
+                            {activeTab === 'laporan' && <Reports user={user}/>}
+                        </main>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
